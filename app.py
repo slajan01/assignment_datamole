@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker, Session
 import httpx
 import datetime
 import asyncio
+from contextlib import asynccontextmanager
 
 DATABASE_URL = "sqlite:///./github_events.db"
 GITHUB_API_URL = "https://api.github.com/repos/{owner}/{repo}/events"
@@ -16,7 +17,13 @@ Base = declarative_base()
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-app = FastAPI()
+@asynccontextmanager
+def lifespan(app: FastAPI):
+    task = asyncio.create_task(fetch_github_events())
+    yield
+    task.cancel()
+
+app = FastAPI(lifespan=lifespan)
 
 class GitHubEvent(Base):
     __tablename__ = "github_events"
@@ -36,13 +43,15 @@ def get_db():
 
 async def fetch_github_events():
     async with httpx.AsyncClient() as client:
-        for repo in REPOSITORIES:
-            owner, repo_name = repo.split("/")
-            response = await client.get(GITHUB_API_URL.format(owner=owner, repo=repo_name))
-            if response.status_code == 200:
-                events = response.json()
-                store_events(repo, events)
-            await asyncio.sleep(10)  # Avoid hitting API rate limits
+        while True:
+            for repo in REPOSITORIES:
+                owner, repo_name = repo.split("/")
+                response = await client.get(GITHUB_API_URL.format(owner=owner, repo=repo_name))
+                if response.status_code == 200:
+                    events = response.json()
+                    store_events(repo, events)
+                await asyncio.sleep(10)  # Avoid hitting API rate limits
+
 
 def store_events(repo, events):
     db = SessionLocal()
@@ -72,7 +81,3 @@ def get_stats(db: Session = Depends(get_db)):
         (func.avg(GitHubEvent.created_at - func.lag(GitHubEvent.created_at).over(partition_by=[GitHubEvent.repo_name, GitHubEvent.event_type]))).label("average_time_between_events")
     ).group_by(GitHubEvent.repo_name, GitHubEvent.event_type).all()
     return {"stats": stats}
-
-@app.on_event("startup")
-async def startup_event():
-    asyncio.create_task(fetch_github_events())
