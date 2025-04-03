@@ -8,7 +8,7 @@ import os
 load_dotenv()
 
 GITHUB_API_URL = os.getenv("GITHUB_API_URL", "https://api.github.com/repos/{owner}/{repo}/events")
-REPOSITORIES = ["octocat/Hello-World", "octocat/App", "octocat/Assignment", "octocat/LLM", "octocat/Datamole"]
+REPOSITORIES = ["owner/repo1", "owner/repo2", "owner/repo3", "owner/repo4", "owner/repo5"]  
 ROLLING_WINDOW_DAYS = 7
 MAX_EVENTS = 500
 POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", 10))
