@@ -2,14 +2,15 @@ from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy import create_engine, Column, String, Integer, DateTime, func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
+from contextlib import asynccontextmanager
 import httpx
 import datetime
 import asyncio
-from contextlib import asynccontextmanager
+
 
 DATABASE_URL = "sqlite:///./github_events.db"
 GITHUB_API_URL = "https://api.github.com/repos/{owner}/{repo}/events"
-REPOSITORIES = ["octocat/Hello-World"]  # Replace with up to 5 repositories
+REPOSITORIES = ["name/name"]  # Vlož sem repo, které chceš sledovat, nejvíce 5
 ROLLING_WINDOW_DAYS = 7
 MAX_EVENTS = 500
 
@@ -50,12 +51,12 @@ async def fetch_github_events():
                 if response.status_code == 200:
                     events = response.json()
                     store_events(repo, events)
-                await asyncio.sleep(10)  # Avoid hitting API rate limits
+                await asyncio.sleep(10)  # Vyhnout se překročení API limitu
 
 
 def store_events(repo, events):
     db = SessionLocal()
-    for event in events[:MAX_EVENTS]:  # Keep only the latest MAX_EVENTS events
+    for event in events[:MAX_EVENTS]:  # Zachovej pouze posledních MAX_EVENTS
         if not db.query(GitHubEvent).filter(GitHubEvent.id == event["id"]).first():
             db_event = GitHubEvent(
                 id=event["id"],
@@ -69,7 +70,7 @@ def store_events(repo, events):
     db.close()
 
 def enforce_rolling_window(db: Session):
-    cutoff_date = datetime.datetime.utcnow() - datetime.timedelta(days=ROLLING_WINDOW_DAYS)
+    cutoff_date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=ROLLING_WINDOW_DAYS)
     db.query(GitHubEvent).filter(GitHubEvent.created_at < cutoff_date).delete()
     db.commit()
 
@@ -81,3 +82,4 @@ def get_stats(db: Session = Depends(get_db)):
         (func.avg(GitHubEvent.created_at - func.lag(GitHubEvent.created_at).over(partition_by=[GitHubEvent.repo_name, GitHubEvent.event_type]))).label("average_time_between_events")
     ).group_by(GitHubEvent.repo_name, GitHubEvent.event_type).all()
     return {"stats": stats}
+
