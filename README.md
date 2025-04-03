@@ -5,7 +5,8 @@ This application tracks activity on GitHub by monitoring up to **five configurab
 
 ## Features
 - Monitors up to **5 GitHub repositories**
-- Maintains a rolling window of **7 days or 500 events (whichever is smaller)**
+- Maintains a rolling window of **7 days or 500 events (whichever is less)**
+- Calculates the **average time between consecutive events)**
 - Stores data persistently using **SQLite**
 - Minimizes API calls to GitHub by caching and throttling requests
 - Provides an API endpoint to retrieve statistics on event timing
@@ -45,9 +46,9 @@ This application tracks activity on GitHub by monitoring up to **five configurab
 {
   "stats": [
     {
-      "repo_name": "octocat/Hello-World",
+      "repo_name": "owner/repo2",
       "event_type": "PushEvent",
-      "average_time_between_events": 3600.5
+      "average_time_between_events": 2800.5
     }
   ]
 }
@@ -56,7 +57,7 @@ This application tracks activity on GitHub by monitoring up to **five configurab
 ## Configuration
 You can configure the repositories to track by modifying the `REPOSITORIES` list in `main.py`:
 ```python
-REPOSITORIES = ["owner/repo1", "owner/repo2"]
+REPOSITORIES = ["owner/repo1", "owner/repo2", "owner/repo3", "owner/repo4", "owner/repo5"]
 ```
 
 ## Deployment
